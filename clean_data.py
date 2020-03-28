@@ -25,3 +25,24 @@ def pts_scored_received():
     #home and away scores
 
 
+# adds 2 columns to player dataset, 
+# ['start_datetime'] is the time the match took place
+# ['rest_hours'] is the time between the current match and their last match in hours
+def add_rest_time(team_dataset, player_dataset):
+  import numpy as np
+
+  #group and sort based on team_id
+  team_dataset['start_datetime'] = pd.to_datetime(team_dataset.start_datetime)
+  team_dataset = team_dataset.groupby('team_id').apply(pd.DataFrame.sort_values, ['start_datetime'], ascending=True)
+  #rest period for each team is in hours
+  team_dataset['rest_hours'] = team_dataset.start_datetime.diff().astype('timedelta64[h]')
+  #fix the first entry of each team
+  mask = team_dataset.team_id != team_dataset.team_id.shift(1)
+  team_dataset['rest_hours'][mask] = np.nan
+
+  #revert index
+  team_dataset.reset_index(level=0, inplace=True,drop=True)
+
+  player_dataset = player_dataset.merge(team_dataset[['match_id', 'team_id', 'start_datetime','rest_hours']], on=['match_id', 'team_id'], how = 'left')
+
+  return team_dataset.dropna(subset=['rest_hours']), player_dataset.dropna(subset=['rest_hours'])
